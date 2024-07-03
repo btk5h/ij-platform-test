@@ -1,7 +1,11 @@
+import org.jetbrains.intellij.platform.gradle.DependencyVersion
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+import org.jetbrains.intellij.platform.gradle.models.ProductRelease
+
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.9.23"
-    id("org.jetbrains.intellij") version "1.17.3"
+    id("org.jetbrains.intellij.platform") version "2.0.0-beta8"
 }
 
 group = "com.example"
@@ -9,39 +13,47 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    intellijPlatform {
+        defaultRepositories()
+    }
 }
 
-// Configure Gradle IntelliJ Plugin
-// Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
-intellij {
-    version.set("2023.2.6")
-    type.set("IC") // Target IDE Platform
-
-    plugins.set(listOf(/* Plugin Dependencies */))
+kotlin {
+    jvmToolchain(17)
 }
 
-tasks {
-    // Set the JVM compatibility versions
-    withType<JavaCompile> {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
+val pvVersion: String? = System.getenv("PLUGIN_VERIFIER_VERSION")
+
+dependencies {
+    intellijPlatform {
+        intellijIdeaUltimate("2024.1")
+        pluginVerifier(
+            if (pvVersion != null)
+                DependencyVersion.Exact(pvVersion)
+            else
+                DependencyVersion.Latest
+        )
+        instrumentationTools()
+
+        bundledPlugin("Git4Idea")
+
+        plugin("org.jetbrains.plugins.ruby", "241.14494.240")
     }
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "17"
+}
+
+intellijPlatform {
+    pluginConfiguration {
+        ideaVersion {
+            sinceBuild = "241"
+            untilBuild = "242.*"
+        }
     }
 
-    patchPluginXml {
-        sinceBuild.set("232")
-        untilBuild.set("242.*")
-    }
+    verifyPlugin {
+        ides {
+            recommended()
+        }
 
-    signPlugin {
-        certificateChain.set(System.getenv("CERTIFICATE_CHAIN"))
-        privateKey.set(System.getenv("PRIVATE_KEY"))
-        password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
-    }
-
-    publishPlugin {
-        token.set(System.getenv("PUBLISH_TOKEN"))
+        freeArgs = listOf("-mute", "ForbiddenPluginIdPrefix")
     }
 }
